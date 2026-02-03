@@ -5,35 +5,44 @@ import numpy as np
 from datetime import datetime, timedelta
 
 # --- 1. 頁面設定 ---
-st.set_page_config(page_title="股票大師：智能選股雷達 (150大)", layout="wide", page_icon="📡")
+st.set_page_config(page_title="股票大師：智能選股雷達 (中文版)", layout="wide", page_icon="📡")
 st.title("📡 股票大師：策略 2 (RSI + 200MA) 全市場掃描")
 
-# --- 2. 核心數據處理 ---
-def get_target_tickers():
-    # 台灣前 150 大權值股 (0050 + 0051 成分股集合)
-    # 包含半導體、AI供應鏈、金融、航運、傳產龍頭
-    tickers = [
-        # --- 台灣50 (權值龍頭) ---
-        "2330.TW", "2317.TW", "2454.TW", "2308.TW", "2303.TW", "2881.TW", "2882.TW", "2891.TW", "2886.TW", "2884.TW",
-        "2382.TW", "2885.TW", "2892.TW", "2207.TW", "2357.TW", "2890.TW", "1216.TW", "2912.TW", "2002.TW", "2880.TW",
-        "2883.TW", "2327.TW", "2345.TW", "2379.TW", "3034.TW", "5880.TW", "2395.TW", "3008.TW", "2887.TW", "1101.TW",
-        "3045.TW", "2801.TW", "2412.TW", "6505.TW", "3711.TW", "2603.TW", "3037.TW", "5871.TW", "2354.TW", "4904.TW",
-        "2324.TW", "5876.TW", "2408.TW", "9910.TW", "2105.TW", "1303.TW", "1301.TW", "1326.TW", "3017.TW", "2609.TW",
-        # --- 中型100 (成長潛力) ---
-        "2356.TW", "3231.TW", "2376.TW", "2383.TW", "2353.TW", "2409.TW", "3481.TW", "2615.TW", "1102.TW", "1402.TW",
-        "2474.TW", "4938.TW", "9904.TW", "9945.TW", "2006.TW", "1605.TW", "2313.TW", "2368.TW", "3035.TW", "3443.TW",
-        "3661.TW", "6669.TW", "2301.TW", "2337.TW", "2344.TW", "2347.TW", "2360.TW", "2377.TW", "2385.TW", "2449.TW",
-        "2492.TW", "2498.TW", "2542.TW", "2606.TW", "2610.TW", "2618.TW", "2809.TW", "2812.TW", "2834.TW", "2845.TW",
-        "2867.TW", "2888.TW", "2889.TW", "2903.TW", "2915.TW", "3036.TW", "3044.TW", "3189.TW", "3293.TW", "3532.TW",
-        "3533.TW", "3653.TW", "3702.TW", "3706.TW", "4919.TW", "4958.TW", "4961.TW", "4966.TW", "5269.TW", "5347.TWO",
-        "5483.TWO", "5522.TW", "5871.TW", "6005.TW", "6176.TW", "6213.TW", "6239.TW", "6269.TW", "6271.TW", "6278.TW",
-        "6285.TW", "6409.TW", "6415.TW", "6443.TW", "6472.TW", "6515.TW", "6531.TW", "6533.TW", "6669.TW", "6770.TW",
-        "6781.TW", "8046.TW", "8069.TW", "8150.TW", "8299.TW", "8436.TW", "8454.TW", "8464.TW", "9914.TW", "9917.TW",
-        "9921.TW", "9933.TW", "9941.TW", "9958.TW", "1504.TW", "1513.TW", "1519.TW", "1560.TW", "1590.TW", "1722.TW"
-    ]
-    # 去除重複並排序
-    tickers = sorted(list(set(tickers)))
-    return tickers
+# --- 2. 核心數據處理 (內建中文對照表) ---
+def get_stock_map():
+    # 這裡建立一個 "代碼": "中文名稱" 的字典
+    # 包含台灣50與中型100熱門股
+    stock_map = {
+        # --- 半導體/電子龍頭 ---
+        "2330.TW": "台積電", "2317.TW": "鴻海", "2454.TW": "聯發科", "2308.TW": "台達電", 
+        "2303.TW": "聯電", "3711.TW": "日月光", "2379.TW": "瑞昱", "3034.TW": "聯詠",
+        "2382.TW": "廣達", "3231.TW": "緯創", "2376.TW": "技嘉", "2357.TW": "華碩",
+        "2356.TW": "英業達", "2301.TW": "光寶科", "2324.TW": "仁寶", "2353.TW": "宏碁",
+        "2395.TW": "研華", "3037.TW": "欣興", "3035.TW": "智原", "3661.TW": "世芯-KY",
+        "3443.TW": "創意", "6669.TW": "緯穎", "2408.TW": "南亞科", "2344.TW": "華邦電",
+        "3008.TW": "大立光", "2409.TW": "友達", "3481.TW": "群創", "2354.TW": "鴻準",
+        "4938.TW": "和碩", "4958.TW": "臻鼎-KY", "3044.TW": "健鼎", "2368.TW": "金像電",
+        
+        # --- 金融股 ---
+        "2881.TW": "富邦金", "2882.TW": "國泰金", "2891.TW": "中信金", "2886.TW": "兆豐金",
+        "2884.TW": "玉山金", "2885.TW": "元大金", "2892.TW": "第一金", "2890.TW": "永豐金",
+        "2880.TW": "華南金", "2883.TW": "開發金", "5880.TW": "合庫金", "2887.TW": "台新金",
+        "2801.TW": "彰銀", "5876.TW": "上海商銀", "2834.TW": "臺企銀", "2812.TW": "台中銀",
+        "2867.TW": "三商壽", "2889.TW": "國票金", "2897.TW": "王道銀", "5871.TW": "中租-KY",
+
+        # --- 傳產/航運/其他 ---
+        "1101.TW": "台泥", "1102.TW": "亞泥", "2002.TW": "中鋼", "2006.TW": "東和鋼鐵",
+        "6505.TW": "台塑化", "1301.TW": "台塑", "1303.TW": "南亞", "1326.TW": "台化",
+        "2603.TW": "長榮", "2609.TW": "陽明", "2615.TW": "萬海", "2610.TW": "華航",
+        "2618.TW": "長榮航", "2912.TW": "統一超", "1216.TW": "統一", "2207.TW": "和泰車",
+        "9910.TW": "豐泰", "9904.TW": "寶成", "1402.TW": "遠東新", "1504.TW": "東元",
+        "1513.TW": "中興電", "1519.TW": "華城", "1605.TW": "華新", "2542.TW": "興富發",
+        "2412.TW": "中華電", "3045.TW": "台灣大", "4904.TW": "遠傳", "9914.TW": "美利達",
+        "9921.TW": "巨大", "8454.TW": "富邦媒", "8046.TW": "南電", "8069.TW": "元太",
+        "8299.TW": "群聯", "6269.TW": "台郡", "6239.TW": "力成", "5347.TWO": "世界",
+        "5483.TWO": "中美晶", "6488.TW": "環球晶", "6770.TW": "力積電", "2449.TW": "京元電"
+    }
+    return stock_map
 
 # RSI 計算函數
 def calculate_rsi(series, period=14):
@@ -47,21 +56,23 @@ def calculate_rsi(series, period=14):
     return rsi
 
 # --- 3. 掃描引擎 ---
-def scan_market(tickers):
+def scan_market(stock_map):
     results_buy = []
     results_sell = []
     
     progress_bar = st.progress(0)
     status_text = st.empty()
     
-    # 下載數據 (長度足夠計算 MA200)
+    tickers = list(stock_map.keys())
+    
+    # 下載數據
     start_date = datetime.now() - timedelta(days=400)
     end_date = datetime.now() + timedelta(days=1)
     
     status_text.text(f"正在連線 Yahoo Finance 下載 {len(tickers)} 檔股票數據...")
     
     try:
-        # 這裡為了穩定性，我們將 150 檔分成 3 批次下載，避免一次請求過大被擋
+        # 分批下載 (Batch Download)
         batch_size = 50
         all_data = pd.DataFrame()
         
@@ -70,7 +81,6 @@ def scan_market(tickers):
             status_text.text(f"正在下載第 {i+1} ~ {min(i+batch_size, len(tickers))} 檔... (請稍候)")
             batch_data = yf.download(batch_tickers, start=start_date, end=end_date, group_by='ticker', progress=False)
             
-            # 合併數據 (處理 MultiIndex)
             if all_data.empty:
                 all_data = batch_data
             else:
@@ -83,7 +93,10 @@ def scan_market(tickers):
             progress_bar.progress((i + 1) / total)
             
             try:
-                # 容錯處理：有些股票可能下載失敗
+                # 取得中文名稱
+                stock_name = stock_map.get(ticker, ticker)
+                
+                # 容錯處理
                 if ticker not in all_data.columns.get_level_values(0):
                     continue
                     
@@ -98,7 +111,7 @@ def scan_market(tickers):
                 # 計算指標
                 df['MA200'] = df['Close'].rolling(200).mean()
                 
-                # RSI (Simple Moving Average approximation for speed)
+                # RSI 
                 delta = df['Close'].diff()
                 up = delta.clip(lower=0)
                 down = -1 * delta.clip(upper=0)
@@ -115,42 +128,44 @@ def scan_market(tickers):
                 date_str = df.index[-1].strftime('%Y-%m-%d')
                 
                 # --- 策略 2 邏輯 ---
-                
+                # 清理代碼顯示 (移除 .TW)
+                clean_ticker = ticker.replace(".TW", "").replace(".TWO", "")
+
                 # 🟢 買入條件：股價 > 200MA (長多) 且 RSI < 30 (超賣)
                 if price > ma200 and rsi < 30:
                     dist_ma200 = (price - ma200) / ma200 * 100
                     results_buy.append({
-                        "代碼": ticker.replace(".TW", "").replace(".TWO", ""),
-                        "日期": date_str,
+                        "代碼": clean_ticker,
+                        "名稱": stock_name,  # 新增這一欄
                         "收盤價": f"{price:.2f}",
                         "RSI": f"{rsi:.1f} 🔥",
                         "200MA": f"{ma200:.2f}",
                         "乖離率": f"{dist_ma200:.1f}%",
-                        "狀態": "長多回檔 (強烈買訊)"
+                        "日期": date_str
                     })
                 
                 # 🟡 觀察名單：股價 > 200MA 且 RSI < 40
                 elif price > ma200 and rsi < 40:
                      dist_ma200 = (price - ma200) / ma200 * 100
                      results_buy.append({
-                        "代碼": ticker.replace(".TW", "").replace(".TWO", ""),
-                        "日期": date_str,
+                        "代碼": clean_ticker,
+                        "名稱": stock_name, # 新增這一欄
                         "收盤價": f"{price:.2f}",
                         "RSI": f"{rsi:.1f}",
                         "200MA": f"{ma200:.2f}",
                         "乖離率": f"{dist_ma200:.1f}%",
-                        "狀態": "觀察中 (RSI < 40)"
+                        "日期": date_str
                     })
 
                 # 🔴 賣出條件：RSI > 70
                 if rsi > 70:
                     results_sell.append({
-                        "代碼": ticker.replace(".TW", "").replace(".TWO", ""),
-                        "日期": date_str,
+                        "代碼": clean_ticker,
+                        "名稱": stock_name, # 新增這一欄
                         "收盤價": f"{price:.2f}",
                         "RSI": f"{rsi:.1f} ⚠️",
                         "200MA": f"{ma200:.2f}",
-                        "狀態": "過熱 (注意風險)"
+                        "日期": date_str
                     })
 
             except Exception as e:
@@ -166,16 +181,16 @@ def scan_market(tickers):
 # --- 4. 主介面 ---
 st.markdown("""
 ### 策略 2：RSI + 200MA 長線保護短線
-* **掃描範圍**：台灣 50 + 中型 100 (約 150 檔熱門股)
+* **掃描範圍**：台灣 50 + 中型 100 (約 150 檔熱門權值股)
 * **✅ 買進條件**：股價在 **200MA (年線)** 之上，且 **RSI < 30** (或 40)。
 * **❌ 賣出條件**：**RSI > 70** (短線過熱)。
 """)
 
 col1, col2 = st.columns([1, 3])
 with col1:
-    if st.button("🚀 開始掃描全市場 (150檔)", type="primary"):
-        tickers = get_target_tickers()
-        df_buy, df_sell = scan_market(tickers)
+    if st.button("🚀 開始掃描全市場 (含中文名)", type="primary"):
+        stock_map = get_stock_map()
+        df_buy, df_sell = scan_market(stock_map)
         
         st.session_state['df_buy'] = df_buy
         st.session_state['df_sell'] = df_sell
@@ -187,15 +202,18 @@ if 'df_buy' in st.session_state:
     with tab1:
         if not st.session_state['df_buy'].empty:
             st.success(f"共找到 {len(st.session_state['df_buy'])} 檔符合條件！")
-            st.dataframe(st.session_state['df_buy'], use_container_width=True)
-            st.markdown("💡 **解讀**：這些股票長線趨勢向上 (MA200 支撐)，但短線跌深了。請點擊股票代碼，回到「技術分析」分頁確認 K 線型態。")
+            # 調整欄位順序，讓名稱在前面比較好看
+            cols = ["代碼", "名稱", "收盤價", "RSI", "乖離率", "200MA", "日期"]
+            st.dataframe(st.session_state['df_buy'][cols], use_container_width=True)
+            st.markdown("💡 **解讀**：這些是長線多頭但短線被錯殺的股票。")
         else:
             st.info("目前沒有股票符合「長多回檔 (RSI<40)」的條件。")
 
     with tab2:
         if not st.session_state['df_sell'].empty:
             st.warning(f"共找到 {len(st.session_state['df_sell'])} 檔過熱股！")
-            st.dataframe(st.session_state['df_sell'], use_container_width=True)
-            st.markdown("💡 **解讀**：這些股票短線 RSI 過高，隨時可能回檔整理。")
+            cols = ["代碼", "名稱", "收盤價", "RSI", "200MA", "日期"]
+            st.dataframe(st.session_state['df_sell'][cols], use_container_width=True)
+            st.markdown("💡 **解讀**：這些股票短線過熱，請注意風險。")
         else:
             st.info("目前沒有股票 RSI > 70。")
